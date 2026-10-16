@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Zero Trust Network Architecture - Diagram</title>
+<style>
+  :root { --ink: #232F3E; --region: #00A4A6; --vpc: #8C4FFF; --public: #7AA116; --private: #00A4A6; --grey: #7D8998; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; font-family: "Amazon Ember", "Helvetica Neue", Arial, sans-serif; color: var(--ink); }
+  #canvas { position: relative; width: 1800px; height: 1000px; background: #fff; overflow: hidden; }
+  .box { position: absolute; border: 2px solid; }
+  .box > .title { position: absolute; top: 6px; left: 10px; font-size: 19px; display: flex; align-items: center; gap: 8px; }
+  .box > .title img { width: 32px; height: 32px; }
+  .cloud { border-color: var(--ink); }
+  .cloud > .title { top: 0; left: 0; background: var(--ink); color: #fff; padding: 0 12px 0 0; height: 36px; }
+  .cloud > .title img { width: 36px; height: 36px; }
+  .region { border: 2px dashed var(--region); }
+  .region > .title { color: #00777A; }
+  .vpc { border-color: var(--vpc); }
+  .vpc > .title { top: 0; left: 0; }
+  .vpc > .title img { width: 36px; height: 36px; }
+  .az { border: 2px dashed var(--grey); }
+  .az > .title { left: 50%; transform: translateX(-50%); white-space: nowrap; color: var(--ink); }
+  .public { border-color: var(--public); }
+  .public > .title { top: 0; left: 0; color: #3F5F00; }
+  .private { border-color: var(--private); }
+  .private > .title { top: 0; left: 0; color: #00777A; }
+  .group { border-color: var(--grey); }
+  .node { position: absolute; width: 180px; margin-left: -90px; text-align: center; }
+  .node img { width: 64px; height: 64px; display: block; margin: 0 auto; }
+  .node span { display: block; margin-top: 6px; font-size: 19px; line-height: 1.15; }
+  .step { position: absolute; width: 30px; height: 30px; border-radius: 50%; background: #000; color: #fff; font-size: 17px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  svg { position: absolute; inset: 0; pointer-events: none; }
+  svg polyline { fill: none; stroke: #000; stroke-width: 1.6; }
+</style>
+</head>
+<body>
+<div id="canvas">
+
+  <!-- Containers -->
+  <div class="box cloud" style="left:265px; top:20px; width:1515px; height:960px;"><div class="title"><img src="icons/group-aws-cloud.svg" alt="">AWS Cloud</div></div>
+  <div class="box region" style="left:285px; top:68px; width:1475px; height:892px;"><div class="title"><img src="icons/group-region.svg" alt="">us-east-1</div></div>
+  <div class="box vpc" style="left:590px; top:112px; width:715px; height:828px;"><div class="title"><img src="icons/group-vpc.svg" alt="">VPC</div></div>
+  <div class="box az" style="left:625px; top:160px; width:545px; height:760px;"><div class="title">Availability Zones us-east-1a, us-east-1b</div></div>
+  <div class="box public" style="left:660px; top:200px; width:270px; height:185px;"><div class="title"><img src="icons/group-public-subnet.svg" alt="">Firewall subnet</div></div>
+  <div class="box public" style="left:660px; top:405px; width:270px; height:495px;"><div class="title"><img src="icons/group-public-subnet.svg" alt="">Public subnets</div></div>
+  <div class="box private" style="left:950px; top:200px; width:200px; height:700px;"><div class="title"><img src="icons/group-private-subnet.svg" alt="">Private subnets</div></div>
+  <div class="box group" style="left:1330px; top:112px; width:415px; height:410px;"><div class="title">AWS service APIs</div></div>
+
+  <!-- Outside AWS: top = center y - 32 -->
+  <div class="node" style="left:130px; top:118px;"><img src="icons/internet-client.svg" alt=""><span>Internet client</span></div>
+  <div class="node" style="left:130px; top:398px;"><img src="icons/registry.svg" alt=""><span>Docker Hub</span></div>
+  <div class="node" style="left:130px; top:578px;"><img src="icons/client.svg" alt=""><span>Posture dashboard</span></div>
+  <div class="node" style="left:130px; top:748px;"><img src="icons/user.svg" alt=""><span>Administrator</span></div>
+
+  <!-- Session Manager -->
+  <div class="node" style="left:430px; top:578px;"><img src="icons/s3.svg" alt=""><span>Session recordings</span></div>
+  <div class="node" style="left:430px; top:748px;"><img src="icons/systems-manager.svg" alt=""><span>Session Manager</span></div>
+
+  <!-- VPC -->
+  <div class="node" style="left:590px; top:258px; width:100px; margin-left:-50px;"><img src="icons/internet-gateway.svg" alt=""><span>Internet gateway</span></div>
+  <div class="node" style="left:860px; top:258px;"><img src="icons/firewall-endpoint.svg" alt=""><span>Network Firewall</span></div>
+  <div class="node" style="left:860px; top:468px;"><img src="icons/classic-lb.svg" alt=""><span>Public load balancer</span></div>
+  <div class="node" style="left:860px; top:648px;"><img src="icons/nat-gateway.svg" alt=""><span>NAT gateway</span></div>
+  <div class="node" style="left:1040px; top:268px;"><img src="icons/vpc-endpoints.svg" alt=""><span>Interface endpoints</span></div>
+  <div class="node" style="left:1040px; top:468px; width:160px; margin-left:-80px;"><img src="icons/eks.svg" alt=""><span>EKS: Istio, 5 services</span></div>
+  <div class="node" style="left:1040px; top:748px;"><img src="icons/ec2-instance.svg" alt=""><span>Worker nodes</span></div>
+  <div class="node" style="left:1238px; top:468px; width:130px; margin-left:-65px;"><img src="icons/vpc-endpoints.svg" alt=""><span>Gateway endpoints</span></div>
+  <div class="node" style="left:1238px; top:748px; width:130px; margin-left:-65px;"><img src="icons/flow-logs.svg" alt=""><span>Flow logs</span></div>
+
+  <!-- AWS service APIs -->
+  <div class="node" style="left:1400px; top:178px; width:135px; margin-left:-67px;"><img src="icons/ecr.svg" alt=""><span>ECR</span></div>
+  <div class="node" style="left:1538px; top:178px; width:135px; margin-left:-67px;"><img src="icons/sts.svg" alt=""><span>STS</span></div>
+  <div class="node" style="left:1676px; top:178px; width:135px; margin-left:-67px;"><img src="icons/eventbridge.svg" alt=""><span>EventBridge</span></div>
+  <div class="node" style="left:1400px; top:358px; width:135px; margin-left:-67px;"><img src="icons/sqs.svg" alt=""><span>SQS</span></div>
+  <div class="node" style="left:1538px; top:358px; width:135px; margin-left:-67px;"><img src="icons/dynamodb.svg" alt=""><span>DynamoDB Streams</span></div>
+  <div class="node" style="left:1676px; top:358px; width:135px; margin-left:-67px;"><img src="icons/dynamodb.svg" alt=""><span>DynamoDB tables</span></div>
+
+  <!-- Identity and detection -->
+  <div class="node" style="left:1400px; top:578px;"><img src="icons/lambda.svg" alt=""><span>Alert to finding</span></div>
+  <div class="node" style="left:1676px; top:578px;"><img src="icons/iam-role.svg" alt=""><span>Workload roles</span></div>
+  <div class="node" style="left:1400px; top:748px;"><img src="icons/cloudwatch.svg" alt=""><span>CloudWatch Logs</span></div>
+  <div class="node" style="left:1676px; top:748px;"><img src="icons/guardduty.svg" alt=""><span>GuardDuty</span></div>
+  <div class="node" style="left:1538px; top:858px;"><img src="icons/security-hub.svg" alt=""><span>Security Hub</span></div>
+
+  <!-- Steps -->
+  <div class="step" style="left:58px; top:105px;">1</div>
+  <div class="step" style="left:792px; top:245px;">2</div>
+  <div class="step" style="left:1166px; top:455px;">3</div>
+  <div class="step" style="left:972px; top:255px;">4</div>
+  <div class="step" style="left:792px; top:635px;">5</div>
+  <div class="step" style="left:58px; top:735px;">6</div>
+  <div class="step" style="left:1166px; top:735px;">7</div>
+  <div class="step" style="left:58px; top:565px;">8</div>
+
+  <svg width="1800" height="1000" viewBox="0 0 1800 1000">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#000"/>
+      </marker>
+    </defs>
+    <!-- 1 internet client to the internet gateway; allowlisted egress back out to Docker Hub -->
+    <polyline points="166,150 245,150 245,290 554,290" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <polyline points="245,290 245,430 166,430" marker-end="url(#arrow)"/>
+    <!-- 2 edge route from the internet gateway to the firewall, firewall to the load balancer, load balancer to Istio -->
+    <polyline points="626,280 824,280" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <polyline points="860,356 860,464" marker-end="url(#arrow)"/>
+    <polyline points="896,500 1004,500" marker-end="url(#arrow)"/>
+    <!-- 3 services to DynamoDB tables through the gateway endpoint -->
+    <polyline points="1076,500 1202,500" marker-end="url(#arrow)"/>
+    <polyline points="1274,500 1676,500 1676,472" marker-end="url(#arrow)"/>
+    <!-- 4 services to the interface endpoints, endpoints to the AWS APIs -->
+    <polyline points="1040,464 1040,392" marker-end="url(#arrow)"/>
+    <polyline points="1076,300 1326,300" marker-end="url(#arrow)"/>
+    <!-- 5 egress: services to NAT, NAT back out through the firewall -->
+    <polyline points="1040,590 1040,680 896,680" marker-end="url(#arrow)"/>
+    <polyline points="824,680 645,680 645,310 824,310" marker-end="url(#arrow)"/>
+    <!-- 6 administrator to Session Manager, session to a node, recording to S3 -->
+    <polyline points="166,780 394,780" marker-end="url(#arrow)"/>
+    <polyline points="466,780 1004,780" marker-end="url(#arrow)"/>
+    <polyline points="430,744 430,668" marker-end="url(#arrow)"/>
+    <!-- 7 flow logs to CloudWatch Logs, firewall alerts to Security Hub, GuardDuty to Security Hub -->
+    <polyline points="1274,780 1364,780" marker-end="url(#arrow)"/>
+    <polyline points="1400,744 1400,668" marker-end="url(#arrow)"/>
+    <polyline points="1436,610 1538,610 1538,854" marker-end="url(#arrow)"/>
+    <polyline points="1676,844 1676,890 1574,890" marker-end="url(#arrow)"/>
+  </svg>
+</div>
+</body>
+</html>

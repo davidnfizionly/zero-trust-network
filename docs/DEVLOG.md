@@ -12,7 +12,7 @@ Real problems, in the order they happened: what happened, root cause, fix.
 
 - **What happened:** On a test commit containing a sample IAM role ARN, the hook printed `BLOCKED` and the push still succeeded (exit code 0).
 - **Root cause:** The scanner records a failure in a shell variable, but the scan functions run on the right-hand side of pipelines, which bash runs in subshells. The variable was set in the subshell and lost.
-- **Fix:** The failure state now goes to a temporary file that every subshell can write. Retested on six cases: a clean commit is accepted, and a full ARN, a `.tfstate` file, a foreign author e-mail with a co-author trailer, an access key pattern and an assistant name are all refused (exit code 1).
+- **Fix:** The failure state now goes to a temporary file that every subshell can write. Retested on six cases: a clean commit is accepted, and a full ARN, a `.tfstate` file, a foreign author e-mail with a co-author trailer, an access key pattern and a blocked tool name are all refused (exit code 1).
 
 ## 2026-10-16 - The account ID rule flagged provider checksums
 
@@ -53,7 +53,7 @@ Real problems, in the order they happened: what happened, root cause, fix.
 ## 2026-10-16 - One node was missing from Session Manager for a while
 
 - **What happened:** After the retrofit only one of the two nodes appeared online in Session Manager. The firewall logged a blocked outbound TLS connection without SNI from the other node, through the NAT path, about once a minute.
-- **First explanation, later corrected:** The SSM agent was assumed to be stuck because it started before the node role had the Session Manager policy. A reboot to confirm was refused and not run.
+- **First explanation, later corrected:** The SSM agent was assumed to be stuck because it started before the node role had the Session Manager policy. No reboot was run to confirm it.
 - **What the evidence shows:** About 40 minutes later both nodes were online without any reboot, and the once-a-minute blocked connections stopped right after the egress rule fix below (drop rules firing before the SNI was parsed). The node was most likely retrying a connection to an allowlisted destination that the faulty rule dropped. Which process made those connections was not identified.
 - **Fix:** The demo scripts select a node that is online in Session Manager; no change was needed once the rule was fixed.
 
