@@ -1,0 +1,20 @@
+# Retrofit of the ingress gateway: the same demo profile, but the public load balancer exposes
+# a single listener (HTTP 80). The original install also exposed the status, HTTPS, TCP and mTLS ports.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: demo
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+        k8s:
+          serviceAnnotations:
+            service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Project=zero-trust
+          service:
+            type: LoadBalancer
+            ports:
+              - name: http2
+                port: 80
+                targetPort: 8080
+                protocol: TCP

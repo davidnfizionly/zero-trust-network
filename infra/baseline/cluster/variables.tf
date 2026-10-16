@@ -33,3 +33,15 @@ variable "node_desired_size" {
   type        = number
   default     = 2
 }
+
+variable "cluster_endpoint_public_access" {
+  description = "Public access to the Kubernetes API endpoint. true is the original design; the retrofit sets false"
+  type        = bool
+  default     = true
+}
+
+variable "enable_nat_gateway" {
+  description = "NAT gateway for the private subnets. true is the original design"
+  type        = bool
+  default     = true
+}
