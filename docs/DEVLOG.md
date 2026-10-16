@@ -25,3 +25,9 @@ Real problems, in the order they happened: what happened, root cause, fix.
 - **What happened:** The push of the baseline code was refused for "e-mail address" on FastAPI decorators such as `@app.get`.
 - **Root cause:** The audit scans added diff lines, which start with `+`, and the e-mail rule accepted `+` as a one-character local part, so `+@app.get` matched.
 - **Fix:** The local part must start with a letter or digit. Retested: decorators pass, a sample address on example.com is still refused.
+
+## 2026-10-16 - Two working copies pushed diverging versions of the zero trust stack
+
+- **What happened:** A push was refused as non-fast-forward: another working copy of the repository had pushed a different implementation of `infra/zerotrust` to `main` in the meantime.
+- **Root cause:** Two working copies were writing the same branch at the same time with no coordination.
+- **Fix:** The other commit was reverted with a normal revert commit (history not rewritten, no force push) and the validated version was pushed on top. Only one working copy writes to the repository and runs Terraform from then on. Nothing had been deployed: the state bucket was empty and no cluster, firewall or NAT gateway existed.
