@@ -1,9 +1,11 @@
-# Stateful rules, evaluated in strict order. The policy default is drop_established + alert_established.
+# Stateful rules, evaluated in strict order. The policy default is drop/alert established (app layer).
+# Drop rules on TLS and HTTP only match once the SNI, host or URI has been parsed, so they cannot fire
+# on the first packets of a connection before the pass rules can see the domain or path.
 # Each msg is written to be readable on the dashboard without knowing Suricata syntax.
 
 # --- Ingress: the public API on TCP 80 is the only deliberate entry point ---
 pass http $EXTERNAL_NET any -> $HOME_NET 80 (msg:"Ingress allowed: public API path"; flow:to_server,established; http.uri; content:"/api/"; startswith; sid:1000001; rev:1;)
-drop http $EXTERNAL_NET any -> $HOME_NET 80 (msg:"Ingress blocked: HTTP request outside the public API path"; flow:to_server,established; sid:1000002; rev:1;)
+drop http $EXTERNAL_NET any -> $HOME_NET 80 (msg:"Ingress blocked: HTTP request outside the public API path"; flow:to_server,established; http.uri; content:"/"; startswith; sid:1000002; rev:1;)
 drop tcp $EXTERNAL_NET any -> $HOME_NET !80 (msg:"Ingress blocked: connection to a port that is not the public API"; flow:to_server; sid:1000003; rev:1;)
 drop udp $EXTERNAL_NET any -> $HOME_NET any (msg:"Ingress blocked: UDP from the internet"; sid:1000004; rev:1;)
 drop icmp $EXTERNAL_NET any -> $HOME_NET any (msg:"Ingress blocked: ICMP from the internet"; sid:1000005; rev:1;)
@@ -12,7 +14,7 @@ drop icmp $EXTERNAL_NET any -> $HOME_NET any (msg:"Ingress blocked: ICMP from th
 %{ for i, d in allowed_domains ~}
 pass tls $HOME_NET any -> $EXTERNAL_NET 443 (msg:"Egress allowed: ${d}"; flow:to_server,established; tls.sni; %{ if substr(d, 0, 1) == "." }dotprefix; content:"${d}"; endswith; nocase;%{ else }content:"${d}"; startswith; endswith; nocase;%{ endif } sid:${1000100 + i}; rev:1;)
 %{ endfor ~}
-drop tls $HOME_NET any -> $EXTERNAL_NET any (msg:"Egress blocked: TLS to a domain outside the allowlist"; flow:to_server,established; sid:1000201; rev:1;)
-drop http $HOME_NET any -> $EXTERNAL_NET any (msg:"Egress blocked: plain HTTP to the internet"; flow:to_server,established; sid:1000202; rev:1;)
+drop tls $HOME_NET any -> $EXTERNAL_NET any (msg:"Egress blocked: TLS to a domain outside the allowlist"; flow:to_server,established; tls.sni; content:"."; sid:1000201; rev:1;)
+drop http $HOME_NET any -> $EXTERNAL_NET any (msg:"Egress blocked: plain HTTP to the internet"; flow:to_server,established; http.host; content:"."; sid:1000202; rev:1;)
 drop tcp $HOME_NET any -> $EXTERNAL_NET !443 (msg:"Egress blocked: TCP port other than 443"; flow:to_server; sid:1000203; rev:1;)
 drop udp $HOME_NET any -> $EXTERNAL_NET any (msg:"Egress blocked: UDP to the internet"; sid:1000204; rev:1;)

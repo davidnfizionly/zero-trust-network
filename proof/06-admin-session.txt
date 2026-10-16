@@ -1,0 +1,55 @@
+== Zero-open-port admin session, 2026-10-16 20:10:43 UTC
+
+-- Target node: public IP and key pair
+----------------------------------------------------------------
+|                       DescribeInstances                      |
++----------------------+-----------+-------------+-------------+
+|       instance       | key_pair  | private_ip  |  public_ip  |
++----------------------+-----------+-------------+-------------+
+|  i-1 |  none     |  10.0.1.20  |  none       |
++----------------------+-----------+-------------+-------------+
+
+-- Inbound rules on every security group attached to the node
+sg-1	-1	-1	-1	sg-2	None
+sg-1	tcp	1025	65535	sg-1	Node to node ingress on ephemeral ports
+sg-1	tcp	10250	10250	sg-3	Cluster API to node kubelets
+sg-1	tcp	15017	15017	sg-3	Cluster API Server to Istio webhook (istiod)
+sg-1	tcp	443	443	sg-3	Cluster API to node groups
+sg-1	tcp	4443	4443	sg-3	Cluster API to node 4443/tcp webhook
+sg-1	tcp	53	53	sg-1	Node to node CoreDNS
+sg-1	tcp	6443	6443	sg-3	Cluster API to node 6443/tcp webhook
+sg-1	tcp	8443	8443	sg-3	Cluster API to node 8443/tcp webhook
+sg-1	tcp	9443	9443	sg-3	Cluster API to node 9443/tcp webhook
+sg-1	udp	53	53	sg-1	Node to node CoreDNS UDP
+inbound rules with an IPv4 CIDR source: 0
+inbound rules covering port 22: 0
+
+-- Session Manager session (commands run on the node)
+
+Starting session with SessionId: session-1
+whoami: ssm-user
+host: ip-10-0-1-20.ec2.internal
+listening TCP sockets:
+State  Recv-Q Send-Q Local Address:Port  Peer Address:Port
+LISTEN 0      4096       127.0.0.1:50051      0.0.0.0:*   
+LISTEN 0      4096       127.0.0.1:10248      0.0.0.0:*   
+LISTEN 0      4096       127.0.0.1:61679      0.0.0.0:*   
+LISTEN 0      4096       127.0.0.1:46639      0.0.0.0:*   
+LISTEN 0      128          0.0.0.0:22         0.0.0.0:*   
+LISTEN 0      4096               *:8162             *:*   
+LISTEN 0      4096               *:8163             *:*   
+LISTEN 0      4096               *:61678            *:*   
+LISTEN 0      4096               *:10256            *:*   
+LISTEN 0      128             [::]:22            [::]:*   
+LISTEN 0      4096               *:10250            *:*   
+LISTEN 0      4096               *:10249            *:*   
+
+
+Exiting session with sessionId: session-1.
+
+
+-- Session history for this node
+session-1	Terminated	2026-10-16T23:11:03.308000+03:00	2026-10-16T23:11:05.479000+03:00	AWS-StartInteractiveCommand
+
+-- Session recordings stored in S3
+2026-10-16 23:11:06 978 bytes <session-id>.log

@@ -27,6 +27,9 @@ def _finding(account: str, region: str, record: dict) -> dict:
     alert = event.get("alert", {})
     action = alert.get("action", "unknown")
     signature = alert.get("signature", "Network Firewall alert")
+    if signature.startswith("aws:"):
+        # Policy default action: no rule allowed this traffic.
+        signature = "Default deny: no rule allows this established connection"
     sid = alert.get("signature_id", 0)
     src = event.get("src_ip", "unknown")
     dest = event.get("dest_ip", "unknown")

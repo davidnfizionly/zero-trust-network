@@ -50,8 +50,27 @@ Real problems, in the order they happened: what happened, root cause, fix.
 - **Root cause:** Not every interface endpoint service publishes a private DNS name. DynamoDB Streams does not, so the public hostname keeps resolving to public addresses inside the VPC.
 - **Fix:** The Streams endpoint is created without private DNS, and the fraud detection service gets `AWS_ENDPOINT_URL_DYNAMODB_STREAMS` set to the endpoint's own DNS name (a standard AWS SDK setting, no code change), through a new `extraEnv` value in the Helm chart filled by `workloads/deploy.sh` from a Terraform output. After the redeploy the stream polling loop runs without errors.
 
-## 2026-10-16 - One node never registered with Session Manager
+## 2026-10-16 - One node was missing from Session Manager for a while
 
-- **What happened:** After the retrofit only one of the two nodes appeared online in Session Manager. The firewall logged a blocked outbound TLS connection from the other node to a public Amazon address about once a minute.
-- **Root cause (probable, not confirmed):** The SSM agent on that node started at boot, before the node role had the Session Manager policy and before the endpoints existed, and kept retrying in a way that still reached public addresses through the NAT path, which the firewall now drops. A reboot to confirm was not run.
-- **Fix:** The demo scripts select a node that is online in Session Manager. The blocked attempts stay in the firewall log as they happened.
+- **What happened:** After the retrofit only one of the two nodes appeared online in Session Manager. The firewall logged a blocked outbound TLS connection without SNI from the other node, through the NAT path, about once a minute.
+- **First explanation, later corrected:** The SSM agent was assumed to be stuck because it started before the node role had the Session Manager policy. A reboot to confirm was refused and not run.
+- **What the evidence shows:** About 40 minutes later both nodes were online without any reboot, and the once-a-minute blocked connections stopped right after the egress rule fix below (drop rules firing before the SNI was parsed). The node was most likely retrying a connection to an allowlisted destination that the faulty rule dropped. Which process made those connections was not identified.
+- **Fix:** The demo scripts select a node that is online in Session Manager; no change was needed once the rule was fixed.
+
+## 2026-10-16 - The egress allowlist blocked the allowlisted registry too
+
+- **What happened:** The blocked-path test showed `https://example.com/` blocked as intended, but `https://registry-1.docker.io/v2/`, which is on the allowlist, was blocked as well. The alert record for it had `app_proto: tls`, `ts_progress: client_in_progress` and no SNI.
+- **Root cause:** In strict order, the explicit `drop tls` rule matched the first packets of the connection, before the Client Hello had been parsed, so the SNI-based pass rule never had a chance. The AWS documentation notes that a default drop action can likewise apply to a single packet before application-layer data spanning several packets is available.
+- **Fix:** The policy default actions moved to `aws:drop_established_app_layer` and `aws:alert_established_app_layer`, which let a segmented Client Hello through until the SNI is visible, and the explicit TLS and HTTP drop rules now require the SNI, host or URI to be parsed (`tls.sni; content:"."`, `http.host; content:"."`, `http.uri; content:"/"`). Retested: the Docker Hub registry answers (HTTP 401 and 200), `example.com` is blocked.
+
+## 2026-10-16 - The flow log query was rejected, and filtered on the wrong address
+
+- **What happened:** The first run of the DynamoDB private path demo returned no result: every CloudWatch Logs Insights query failed with `MalformedQueryException: Ephemeral field is already defined: bytes`, and the script kept retrying for 16 minutes.
+- **Root cause:** CloudWatch Logs already defines fields such as `bytes` for flow log groups, so parsing into the same names is rejected. A second mistake would have hidden the result anyway: the query filtered on pod addresses, but the VPC CNI translates pod traffic leaving the VPC CIDR to the node's primary address, so DynamoDB flows carry the node address as packet source.
+- **Fix:** Parsed fields are prefixed (`f_bytes`, `f_start`, ...), the filter uses the addresses of the nodes running the wallet and transaction pods, and the script stops at the first rejected query. The query was tested on existing records before the demo was run again; the rerun shows DynamoDB traffic with `traffic-path` 7 (gateway endpoint).
+
+## 2026-10-16 - Dashboard fixes found by checking the captures
+
+- **What happened:** The automated captures showed four defects: the firewall control failed because it looked for the old default action name; the blocked feed showed the oldest events instead of the newest; the firewall's own endpoint service ID and some IPv6 addresses were displayed unmasked; and Security Hub's 100 most recent findings were all firewall findings, hiding GuardDuty.
+- **Root cause:** A hard-coded action name; `FilterLogEvents` returns the oldest events first and only the first page was read; the masking rules covered IPv4 and resource IDs but not `vpce-svc-` IDs or IPv6; one findings query for all sources.
+- **Fix:** Prefix match on the default action, pagination through the alert log, masking for endpoint service IDs and IPv6 (four or more groups, so clock times are untouched), one findings query per source, and identical findings grouped with a count. The headless check now also fails on those identifier patterns.

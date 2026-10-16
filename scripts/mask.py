@@ -36,10 +36,14 @@ RULES = [
     (re.compile(r"[A-Za-z0-9-]+\.(?:[a-z0-9-]+\.)?elb\.(?:[a-z0-9-]+\.)?amazonaws\.com"), lambda m: label("lb", m.group(0)) + ".elb.amazonaws.com"),
     (re.compile(r"ec2-\d+-\d+-\d+-\d+\.[a-z0-9.-]*amazonaws\.com"), lambda m: label("public-dns", m.group(0))),
     (re.compile(r"\b(vpc|subnet|sg|eni|igw|nat|rtb|vpce|eipalloc|eipassoc|acl|i|fw|lt|sgr|pl)-[0-9a-f]{8,17}\b"), lambda m: label(m.group(1), m.group(0))),
+    # Session Manager session IDs are "<IAM principal name>-<26 characters>": the principal name is not published.
+    (re.compile(r"\b[A-Za-z0-9_.@+=-]+-[a-z0-9]{26}\b"), lambda m: label("session", m.group(0))),
     # Load balancers created by Kubernetes are named "a" + 31 hex characters.
     (re.compile(r"\ba[0-9a-f]{31}\b"), lambda m: label("lb-name", m.group(0))),
     (re.compile(r"(?<![0-9A-Za-z])\d{12}(?![0-9A-Za-z])"), lambda m: "<account-id>"),
     (re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"), mask_ip),
+    # IPv6: four or more groups, or a "::" form. Clock times (two colons) are not touched.
+    (re.compile(r"\b(?:[0-9a-fA-F]{1,4}:){3,7}[0-9a-fA-F]{1,4}\b|\b[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?"), lambda m: label("ipv6", m.group(0))),
 ]
 
 text = sys.stdin.read()

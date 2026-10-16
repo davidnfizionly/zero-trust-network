@@ -1,0 +1,37 @@
+== IAM network context condition, 2026-10-16 20:10:11 UTC
+
+-- 1. Allowed: the wallet pod scans its table (request goes through the DynamoDB gateway endpoint)
+scan OK, items returned: 1
+
+-- 2. Denied: the same role assumed from this machine, outside the VPC
+assume-role-with-web-identity with a service account token: succeeded
+dynamodb scan: 
+dynamodb scan: aws: [ERROR]: An error occurred (AccessDeniedException) when calling the Scan operation: User: arn-1 is not authorized to perform: dynamodb:Scan on resource: arn-2 with an explicit deny in an identity-based policy
+
+-- 3. The deny statement attached to the role
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "dynamodb:UpdateItem",
+                "dynamodb:Scan",
+                "dynamodb:Query",
+                "dynamodb:PutItem",
+                "dynamodb:GetItem",
+                "dynamodb:DescribeTable",
+                "dynamodb:DeleteItem",
+                "dynamodb:BatchWriteItem",
+                "dynamodb:BatchGetItem"
+            ],
+            "Condition": {
+                "StringNotEquals": {
+                    "aws:SourceVpce": "vpce-1"
+                }
+            },
+            "Effect": "Deny",
+            "Resource": "*",
+            "Sid": "DenyDynamoDBOutsideGatewayEndpoint"
+        }
+    ]
+}

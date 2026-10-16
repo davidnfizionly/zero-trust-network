@@ -99,7 +99,17 @@ function Blocked() {
     : data.events.length === 0 ? <Empty>No blocked or alerted traffic in the last 6 hours.</Empty>
     : (
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-base">
+        <ul className="mb-5 grid gap-2 md:grid-cols-2">
+          {data.summary.map((r) => (
+            <li key={r.reason} className="flex items-center justify-between gap-4 rounded-lg bg-slate-950 px-4 py-2">
+              <span className="text-white">{r.reason}</span>
+              <span className="text-2xl font-extrabold text-rose-300">{r.count}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mb-2 text-base text-slate-300">Latest 25 events (last 6 hours)</p>
+        <table className="w-full table-fixed text-left text-base">
+          <colgroup><col className="w-56" /><col className="w-28" /><col /><col className="w-36" /><col className="w-60" /><col className="w-40" /></colgroup>
           <thead className="text-slate-300">
             <tr><th className="py-2 pr-4">Time</th><th className="pr-4">Action</th><th className="pr-4">Why</th><th className="pr-4">From</th><th className="pr-4">To</th><th>Detail</th></tr>
           </thead>
@@ -109,9 +119,9 @@ function Blocked() {
                 <td className="whitespace-nowrap py-2 pr-4 text-slate-300">{time(e.time)}</td>
                 <td className={`pr-4 font-bold uppercase ${e.action === 'blocked' ? 'text-rose-300' : 'text-amber-300'}`}>{e.action}</td>
                 <td className="pr-4 text-white">{e.reason}</td>
-                <td className="pr-4 text-slate-200">{e.source}</td>
-                <td className="pr-4 text-slate-200">{e.proto} {e.destination}</td>
-                <td className="text-slate-200">{e.detail}</td>
+                <td className="break-all pr-4 text-slate-200">{e.source}</td>
+                <td className="break-all pr-4 text-slate-200">{e.proto} {e.destination}</td>
+                <td className="break-all text-slate-200">{e.detail}</td>
               </tr>
             ))}
           </tbody>
@@ -128,16 +138,25 @@ function Findings() {
     : !data.deployed ? <Empty>Security Hub CSPM is not enabled.</Empty>
     : data.findings.length === 0 ? <Empty>No active findings.</Empty>
     : (
-      <ul className="space-y-2">
-        {data.findings.map((f, i) => (
-          <li key={i} className="flex flex-wrap items-baseline gap-3 border-t border-slate-800 pt-2">
-            <span className={`w-24 font-bold ${['CRITICAL', 'HIGH'].includes(f.severity) ? 'text-rose-300' : f.severity === 'MEDIUM' ? 'text-amber-300' : 'text-slate-300'}`}>{f.severity}</span>
-            <span className="w-60 text-sky-300">{f.source}{f.sample ? ' (sample)' : ''}</span>
-            <span className="flex-1 text-white">{f.title}</span>
-            <span className="text-slate-400">{time(f.updated)}</span>
-          </li>
-        ))}
-      </ul>
+      <>
+        <p className="mb-2 text-base text-slate-300">{data.total} active findings, grouped by title</p>
+        <table className="w-full text-left text-base">
+          <thead className="text-slate-300">
+            <tr><th className="py-2 pr-3">Severity</th><th className="pr-3">Source</th><th className="pr-3">Finding</th><th className="pr-3">Count</th><th>Last seen</th></tr>
+          </thead>
+          <tbody>
+            {data.findings.map((f, i) => (
+              <tr key={i} className="border-t border-slate-800 align-top">
+                <td className={`py-2 pr-3 font-bold ${['CRITICAL', 'HIGH'].includes(f.severity) ? 'text-rose-300' : f.severity === 'MEDIUM' ? 'text-amber-300' : 'text-slate-300'}`}>{f.severity}</td>
+                <td className="whitespace-nowrap pr-3 text-sky-300">{f.source}{f.sample ? ' (sample)' : ''}</td>
+                <td className="pr-3 text-white">{f.title}</td>
+                <td className="pr-3 text-2xl font-extrabold text-white">{f.count}</td>
+                <td className="whitespace-nowrap text-slate-300">{time(f.updated)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
     );
   return <Panel title="Security findings" subtitle="Security Hub CSPM: GuardDuty, firewall alerts (custom integration), failed controls" testid="findings">{body}</Panel>;
 }
@@ -178,10 +197,8 @@ export default function App() {
       </header>
       <Controls />
       <Blocked />
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Findings />
-        <Sessions />
-      </div>
+      <Findings />
+      <Sessions />
     </main>
   );
 }

@@ -10,9 +10,11 @@ LB="$(ingress_host)"
 
 {
   echo "== Private path to DynamoDB, $(stamp)"
-  pods="$(kc -n "$NS" get pods -l 'app in (wallet,transaction)' -o jsonpath='{range .items[*]}{.metadata.labels.app}={.status.podIP}{"\n"}{end}')"
-  echo; echo "-- Pods that call DynamoDB"; echo "$pods"
-  ips="$(echo "$pods" | cut -d= -f2 | paste -sd' ')"
+  pods="$(kc -n "$NS" get pods -l 'app in (wallet,transaction)' -o jsonpath='{range .items[*]}{.metadata.labels.app} pod={.status.podIP} node={.status.hostIP}{"\n"}{end}')"
+  echo; echo "-- Pods that call DynamoDB, and the node each runs on"; echo "$pods"
+  echo "(The VPC CNI translates pod traffic leaving the VPC CIDR to the node's primary address, so the"
+  echo " flow log records for DynamoDB carry the node address as packet source.)"
+  ips="$(echo "$pods" | sed -E 's/.*node=//' | sort -u | paste -sd' ')"
 
   start=$(date +%s)
   echo; echo "-- Transfer sent through the public API"
@@ -24,21 +26,23 @@ LB="$(ingress_host)"
 
   filter=""
   for ip in $ips; do filter="${filter:+$filter or }pkt_src = \"$ip\""; done
-  query="parse @message \"* * * * * * * * * * * * * * * * * * *\" as version, eni, srcaddr, dstaddr, srcport, dstport, protocol, packets, bytes, fstart, fend, action, status, subnet, pkt_src, pkt_dst, aws_service, direction, traffic_path
-| filter ($filter) and direction = \"egress\" and dstport = \"443\" and fstart >= $start
-| stats count(*) as flows, sum(bytes) as bytes by pkt_src, aws_service, traffic_path"
+  # Field names are prefixed: CloudWatch already defines some flow log fields (bytes, start, ...).
+  query="parse @message \"* * * * * * * * * * * * * * * * * * *\" as f_version, f_eni, f_srcaddr, f_dstaddr, f_srcport, f_dstport, f_protocol, f_packets, f_bytes, f_start, f_end, f_action, f_status, f_subnet, pkt_src, pkt_dst, aws_service, direction, traffic_path
+| filter ($filter) and direction = \"egress\" and f_dstport = \"443\" and f_start >= $start
+| stats count(*) as flows, sum(f_bytes) as bytes by pkt_src, aws_service, traffic_path"
 
   echo; echo "-- Waiting for flow log delivery (typically about 5 minutes)"
   for _ in $(seq 1 16); do
     sleep 60
     qid="$(aws logs start-query --region "$REGION" --log-group-name "$LOG_GROUP" \
       --start-time "$start" --end-time "$(( $(date +%s) + 60 ))" --query-string "$query" --query queryId --output text)"
+    [ -n "$qid" ] || { echo "query rejected, stopping"; break; }
     sleep 5
     res="$(aws logs get-query-results --region "$REGION" --query-id "$qid" --output json)"
     echo "$res" | jq -e '.results | map(select(any(.[]; .field=="aws_service" and .value=="DYNAMODB"))) | length > 0' >/dev/null && break
   done
-  echo; echo "-- Egress flows on TCP 443 from those pods since the transfer (traffic_path 7 = gateway VPC endpoint, 8 = internet gateway)"
-  echo "$res" | jq -r '["pod_ip","aws_service","traffic_path","flows","bytes"], (.results[] | [ (.[] | select(.field=="pkt_src").value), (.[] | select(.field=="aws_service").value), (.[] | select(.field=="traffic_path").value), (.[] | select(.field=="flows").value), (.[] | select(.field=="bytes").value) ]) | @tsv'
+  echo; echo "-- Egress flows on TCP 443 from those pods since the transfer (traffic_path 7 = gateway VPC endpoint, 8 = internet gateway; aws_service "-" = destination outside the AWS public ranges)"
+  echo "$res" | jq -r '["packet_source","aws_service","traffic_path","flows","bytes"], (.results[] | [ (.[] | select(.field=="pkt_src").value), (.[] | select(.field=="aws_service").value), (.[] | select(.field=="traffic_path").value), (.[] | select(.field=="flows").value), (.[] | select(.field=="bytes").value) ]) | @tsv'
 
   echo; echo "-- DynamoDB gateway endpoint and the route it adds to the private route table"
   aws ec2 describe-vpc-endpoints --region "$REGION" --filters Name=service-name,Values="com.amazonaws.$REGION.dynamodb" \

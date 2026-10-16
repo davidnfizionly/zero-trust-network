@@ -1,0 +1,26 @@
+== Private path to DynamoDB, 2026-10-16 20:31:38 UTC
+
+-- Pods that call DynamoDB, and the node each runs on
+transaction pod=10.0.0.154 node=10.0.0.81
+wallet pod=10.0.0.167 node=10.0.0.81
+(The VPC CNI translates pod traffic leaving the VPC CIDR to the node's primary address, so the
+ flow log records for DynamoDB carry the node address as packet source.)
+
+-- Transfer sent through the public API
+POST /api/transfers: HTTP 200
+POST /api/transfers: HTTP 200
+POST /api/transfers: HTTP 200
+
+-- Waiting for flow log delivery (typically about 5 minutes)
+
+-- Egress flows on TCP 443 from those pods since the transfer (traffic_path 7 = gateway VPC endpoint, 8 = internet gateway; aws_service "-" = destination outside the AWS public ranges)
+packet_source	aws_service	traffic_path	flows	bytes
+10.0.0.81	-	1	4	71080
+10.0.0.81	DYNAMODB	7	1	24190
+
+-- DynamoDB gateway endpoint and the route it adds to the private route table
+vpce-1	Gateway	available
+10.0.0.0/16	local
+0.0.0.0/0	nat-1
+pl-1	vpce-1
+pl-2	vpce-2

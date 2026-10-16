@@ -19,6 +19,11 @@ resource "aws_guardduty_detector_feature" "runtime_monitoring" {
   detector_id = aws_guardduty_detector.this.id
   name        = "RUNTIME_MONITORING"
   status      = "DISABLED"
+
+  # GuardDuty adds disabled agent-management sub-settings on its own; they are not managed here.
+  lifecycle {
+    ignore_changes = [additional_configuration]
+  }
 }
 
 resource "aws_securityhub_account" "this" {

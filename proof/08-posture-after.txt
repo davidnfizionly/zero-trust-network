@@ -1,0 +1,62 @@
+== Posture snapshot: 08-posture-after, 2026-10-16 20:10:14 UTC, region us-east-1
+
+== Subnets (public IP on launch, route to an internet gateway)
+subnet-1	10.0.11.0/24	us-east-1b	False	payment-platform-vpc-public-us-east-1b	internet-gateway-route=0.0.0.0/0
+subnet-2	10.0.10.0/24	us-east-1a	False	payment-platform-vpc-public-us-east-1a	internet-gateway-route=0.0.0.0/0
+subnet-3	10.0.0.0/24	us-east-1a	False	payment-platform-vpc-private-us-east-1a	internet-gateway-route=none
+subnet-4	10.0.20.0/28	us-east-1a	False	payment-platform-firewall-us-east-1a	internet-gateway-route=0.0.0.0/0
+subnet-5	10.0.1.0/24	us-east-1b	False	payment-platform-vpc-private-us-east-1b	internet-gateway-route=none
+
+== Network interfaces with a public IP
+nat_gateway	public-ip-1	Interface for NAT Gateway nat-1
+interface	public-ip-2	ELB lb-name-1
+interface	public-ip-3	ELB lb-name-1
+count: 3
+
+== EC2 instances (public IP)
+i-1	t3.medium	10.0.1.20	none
+i-2	t3.medium	10.0.0.81	none
+
+== Security group inbound rules
+sg-1	-1	-1	-1	sg-1	Allows EFA traffic, which is not matched by CIDR rules.
+sg-2	-1	-1	-1	sg-3	None
+sg-2	tcp	1025	65535	sg-2	Node to node ingress on ephemeral ports
+sg-2	tcp	10250	10250	sg-4	Cluster API to node kubelets
+sg-2	tcp	15017	15017	sg-4	Cluster API Server to Istio webhook (istiod)
+sg-2	tcp	443	443	sg-4	Cluster API to node groups
+sg-2	tcp	4443	4443	sg-4	Cluster API to node 4443/tcp webhook
+sg-2	tcp	53	53	sg-2	Node to node CoreDNS
+sg-2	tcp	6443	6443	sg-4	Cluster API to node 6443/tcp webhook
+sg-2	tcp	8443	8443	sg-4	Cluster API to node 8443/tcp webhook
+sg-2	tcp	9443	9443	sg-4	Cluster API to node 9443/tcp webhook
+sg-2	udp	53	53	sg-2	Node to node CoreDNS UDP
+sg-3	icmp	3	4	0.0.0.0/0	None
+sg-3	tcp	15021	15021	0.0.0.0/0	None
+sg-3	tcp	15443	15443	0.0.0.0/0	None
+sg-3	tcp	31400	31400	0.0.0.0/0	None
+sg-3	tcp	443	443	0.0.0.0/0	None
+sg-3	tcp	80	80	0.0.0.0/0	None
+sg-5	tcp	443	443	10.0.0.0/16	HTTPS from the VPC
+sg-4	tcp	443	443	sg-2	Node groups to cluster API
+inbound rules open to 0.0.0.0/0: 6
+
+== Load balancers
+lb-name-1	internet-facing	lb-1.elb.amazonaws.com	15443,31400,443,80,15021
+
+== NAT gateways and internet gateways
+nat-1	public-ip-1
+igw-1
+
+== EKS API endpoint
+public access=False, private access=True, public CIDRs=0.0.0.0/0
+
+== External TCP scan from outside the VPC
+scan started 2026-10-16 20:11:55 UTC, 1046 TCP ports per address, connect timeout 3.0s, 64 parallel probes, two passes
+lb-1.elb.amazonaws.com (public-ip-3): open TCP ports: 80
+lb-1.elb.amazonaws.com (public-ip-2): open TCP ports: 80
+eks-endpoint-1.eks.amazonaws.com (10.0.0.205): open TCP ports: none
+eks-endpoint-1.eks.amazonaws.com (10.0.1.69): open TCP ports: none
+public-ip-1 (public-ip-1): open TCP ports: none
+public-ip-2 (public-ip-2): already scanned as lb-1.elb.amazonaws.com
+public-ip-3 (public-ip-3): already scanned as lb-1.elb.amazonaws.com
+scan finished 2026-10-16 20:20:25 UTC

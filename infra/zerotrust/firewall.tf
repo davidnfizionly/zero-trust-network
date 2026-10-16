@@ -75,8 +75,10 @@ resource "aws_networkfirewall_firewall_policy" "zero_trust" {
     }
 
     # Default deny: anything no rule passes is dropped once the connection is established,
-    # and logged to the alert log.
-    stateful_default_actions = ["aws:drop_established", "aws:alert_established"]
+    # and logged to the alert log. The application-layer variants let a segmented TLS Client
+    # Hello through until its SNI is visible, so the domain allowlist can be evaluated
+    # (plain drop_established can drop the first packet before the SNI is parsed).
+    stateful_default_actions = ["aws:drop_established_app_layer", "aws:alert_established_app_layer"]
 
     stateful_rule_group_reference {
       priority     = 100

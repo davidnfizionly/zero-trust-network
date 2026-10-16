@@ -45,10 +45,12 @@ const label = (kind, value) => {
 const isPrivate = (ip) => /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|169\.254\.)/.test(ip);
 export const mask = (text) => String(text ?? '')
   .replace(/arn:aws[a-z-]*:[^\s"',]+/g, (m) => label('arn', m))
+  .replace(/\bvpce-svc-[0-9a-f]{8,17}\b/g, (m) => label('vpce-svc', m))
   .replace(/\b(vpc|subnet|sg|eni|igw|nat|rtb|vpce|i|fw)-[0-9a-f]{8,17}\b/g, (m, k) => label(k, m))
   .replace(/\ba[0-9a-f]{31}\b/g, (m) => label('lb-name', m))
   .replace(/(?<![0-9A-Za-z])\d{12}(?![0-9A-Za-z])/g, '<account-id>')
-  .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, (ip) => (isPrivate(ip) ? ip : label('public-ip', ip)));
+  .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, (ip) => (isPrivate(ip) ? ip : label('public-ip', ip)))
+  .replace(/\b(?:[0-9a-f]{1,4}:){3,7}[0-9a-f]{1,4}\b|\b[0-9a-f]{1,4}(?::[0-9a-f]{1,4})*::(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4})*)?/gi, (ip) => label('ipv6', ip));
 
 const safe = async (fn, fallback) => {
   try { return await fn(); } catch (e) { return typeof fallback === 'function' ? fallback(e) : fallback; }
@@ -108,7 +110,7 @@ async function controls() {
       };
     }));
     const status = fw.FirewallStatus?.Status;
-    fwOk = status === 'READY' && defaults.includes('aws:drop_established');
+    fwOk = status === 'READY' && defaults.some((d) => d.startsWith('aws:drop_established'));
     fwDetail = `status ${status}, default action ${defaults.join(' + ') || 'none'}, ${ruleGroups.reduce((n, g) => n + g.rules.length, 0)} stateful rules`;
   }
   out.push(control('firewall', 'Network Firewall inspects traffic, default deny', fwOk, fwDetail));
@@ -150,8 +152,9 @@ async function controls() {
     controls: out,
     ruleGroups,
     endpoints: endpoints.map((e) => ({
-      service: e.ServiceName.split('.').slice(3).join('.'),
-      type: e.VpcEndpointType,
+      // The firewall's own endpoint is a Gateway Load Balancer endpoint to an AWS-owned service.
+      service: e.VpcEndpointType === 'GatewayLoadBalancer' ? 'network-firewall' : e.ServiceName.split('.').slice(3).join('.'),
+      type: e.VpcEndpointType === 'GatewayLoadBalancer' ? 'firewall' : e.VpcEndpointType,
       state: e.State,
     })).sort((a, b) => a.service.localeCompare(b.service)),
   };
@@ -165,12 +168,31 @@ const readable = (sig) => {
 };
 async function blocked() {
   const since = Date.now() - 6 * 3600 * 1000;
-  const res = await safe(() => logs.send(new FilterLogEventsCommand({ logGroupName: ALERT_LOG, startTime: since, limit: 500 })), null);
+  // FilterLogEvents returns the oldest events first: read every page so the newest are included.
+  const res = await safe(async () => {
+    const all = [];
+    let nextToken;
+    for (let page = 0; page < 40; page += 1) {
+      const r = await logs.send(new FilterLogEventsCommand({ logGroupName: ALERT_LOG, startTime: since, nextToken }));
+      all.push(...(r.events ?? []));
+      nextToken = r.nextToken;
+      if (!nextToken) break;
+    }
+    return { events: all.sort((a, b) => a.timestamp - b.timestamp) };
+  }, null);
   if (!res) return { deployed: false, events: [] };
-  const events = (res.events ?? []).map((e) => {
-    const ev = JSON.parse(e.message).event ?? {};
+  const parsed = (res.events ?? []).map((e) => ({ ts: e.timestamp, ev: JSON.parse(e.message).event ?? {} }));
+  // A rule drop and the policy default alert are logged for the same packet: keep the rule's reason.
+  const ruleFlows = new Set(parsed.filter((p) => !(p.ev.alert?.signature ?? '').startsWith('aws:')).map((p) => `${p.ev.flow_id}|${p.ev.timestamp}`));
+  const unique = parsed.filter((p) => !(p.ev.alert?.signature ?? '').startsWith('aws:') || !ruleFlows.has(`${p.ev.flow_id}|${p.ev.timestamp}`));
+  const summary = {};
+  for (const p of unique) {
+    const r = readable(p.ev.alert?.signature);
+    summary[r] = (summary[r] ?? 0) + 1;
+  }
+  const events = unique.map(({ ts, ev }) => {
     return {
-      time: new Date(e.timestamp).toISOString(),
+      time: new Date(ts).toISOString(),
       action: ev.alert?.action,
       reason: readable(ev.alert?.signature),
       proto: ev.proto,
@@ -178,17 +200,31 @@ async function blocked() {
       destination: mask(`${ev.dest_ip}:${ev.dest_port ?? ''}`),
       detail: mask(ev.tls?.sni ? `TLS ${ev.tls.sni}` : ev.http?.url ? `HTTP ${ev.http.http_method ?? ''} ${ev.http.url}` : ''),
     };
-  }).reverse().slice(0, 100);
-  return { deployed: true, events };
+  }).reverse().slice(0, 25);
+  return {
+    deployed: true,
+    events,
+    summary: Object.entries(summary).sort((a, b) => b[1] - a[1]).map(([reason, count]) => ({ reason, count })),
+  };
 }
 
 // --- findings ---
 async function findings() {
-  const res = await safe(() => hub.send(new GetFindingsCommand({
-    Filters: { RecordState: [{ Value: 'ACTIVE', Comparison: 'EQUALS' }], WorkflowStatus: [{ Value: 'NEW', Comparison: 'EQUALS' }] },
+  // One query per source, so the high-volume firewall findings do not hide the others.
+  const base = { RecordState: [{ Value: 'ACTIVE', Comparison: 'EQUALS' }], WorkflowStatus: [{ Value: 'NEW', Comparison: 'EQUALS' }] };
+  const query = (extra) => hub.send(new GetFindingsCommand({
+    Filters: { ...base, ...extra },
     SortCriteria: [{ Field: 'UpdatedAt', SortOrder: 'desc' }],
     MaxResults: 100,
-  })), null);
+  }));
+  const res = await safe(async () => {
+    const parts = await Promise.all([
+      query({ ProductName: [{ Value: 'GuardDuty', Comparison: 'EQUALS' }] }),
+      query({ ProductName: [{ Value: 'Security Hub', Comparison: 'EQUALS' }], ComplianceStatus: [{ Value: 'FAILED', Comparison: 'EQUALS' }] }),
+      query({ ProductName: [{ Value: 'Default', Comparison: 'EQUALS' }] }),
+    ]);
+    return { Findings: parts.flatMap((p) => p.Findings ?? []) };
+  }, null);
   if (!res) return { deployed: false, findings: [] };
   const source = (f) => {
     if (f.ProductName === 'GuardDuty') return 'GuardDuty';
@@ -201,13 +237,22 @@ async function findings() {
     .map((f) => ({
       source: source(f),
       severity: f.Severity?.Label,
-      title: mask(f.Title),
+      title: mask(readable(f.Title)),
       sample: f.ProductFields?.['aws/guardduty/service/additionalInfo/sample'] === 'true' || /sample/i.test(f.Title ?? ''),
       updated: f.UpdatedAt,
     }));
-  const order = { 'Network Firewall (custom)': 0, GuardDuty: 1 };
-  list.sort((a, b) => (order[a.source] ?? 2) - (order[b.source] ?? 2));
-  return { deployed: true, findings: list.slice(0, 40) };
+  // Group identical findings (same source, severity and title) and count them.
+  const groups = new Map();
+  for (const f of list) {
+    const key = `${f.source}|${f.severity}|${f.title}`;
+    const g = groups.get(key) ?? { ...f, count: 0 };
+    g.count += 1;
+    if ((f.updated ?? '') > (g.updated ?? '')) g.updated = f.updated;
+    groups.set(key, g);
+  }
+  const order = { GuardDuty: 0, 'Network Firewall (custom)': 1, 'Security Hub control': 2 };
+  const grouped = [...groups.values()].sort((a, b) => (order[a.source] ?? 2) - (order[b.source] ?? 2) || b.count - a.count);
+  return { deployed: true, total: list.length, findings: grouped.slice(0, 20) };
 }
 
 // --- admin sessions ---
