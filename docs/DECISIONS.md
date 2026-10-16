@@ -19,3 +19,9 @@ One entry per decision the project plan does not spell out: what, why, what was 
 - **What:** `infra/backend` keeps its own state on the build machine (git-ignored). It holds only the state bucket and the budget.
 - **Why:** The stack creates the bucket the others store state in. Migrating its state into its own bucket adds a circular dependency for two resources that are destroyed last.
 - **Rejected:** Migrating the bootstrap state into the bucket after creation.
+
+## ADR-004 - Changes made to the original workload when copying it
+
+- **What:** The baseline is the original platform with only these changes: Kubernetes 1.35 and AL2023 nodes (ADR-001); a partial S3 backend (ADR-002); provider default tags `Project=zero-trust`, with the original `Project` tag renamed `Workload` so it does not override it, and `Project` repeated on the EKS module tags so node instances carry it; a tag annotation on the Istio ingress gateway service so its load balancer is tagged; account-specific Helm values (ECR URLs, IRSA role ARNs, queue URLs) removed from the values files and injected at deploy time from Terraform outputs; the simulator reads its target from `API_BASE_URL` instead of a hardcoded load balancer hostname; comments, descriptions and log messages translated to English, emojis removed. Network layout, security groups, public ingress, NAT and IAM policies are unchanged.
+- **Why:** The "before" measurement must describe the original exposure, so nothing that affects reachability is touched. The other changes are required to deploy in a new account, to tag every resource for cleanup verification, and to publish the code without account identifiers.
+- **Rejected:** Redeploying the Prometheus, Grafana and Kiali sample addons: they are ClusterIP services that do not change the exposure being measured, and on two t3.medium nodes (the account allows 5 vCPU) their memory is better left to the workload and the security tooling added later.

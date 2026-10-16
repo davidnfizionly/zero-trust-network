@@ -1,0 +1,57 @@
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: payment-platform-gateway
+  namespace: payment-app
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*"
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: transaction-service-routes
+  namespace: payment-app
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - payment-platform-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /api/transfers
+      rewrite:
+        uri: /transfers
+      route:
+        - destination:
+            host: transaction-service
+            port:
+              number: 8000
+    - match:
+        - uri:
+            prefix: /api/wallets
+      rewrite:
+        uri: /wallets
+      route:
+        - destination:
+            host: wallet-service
+            port:
+              number: 8000
+    - match:
+        - uri:
+            prefix: /api/fraud
+      rewrite:
+        uri: /fraud-events
+      route:
+        - destination:
+            host: fraud-detection-service
+            port:
+              number: 8000

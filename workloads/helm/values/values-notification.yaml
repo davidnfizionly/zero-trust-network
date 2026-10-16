@@ -1,0 +1,6 @@
+# image.repository, serviceAccount.irsaRoleArn and the queue URL are set at deploy time from Terraform outputs.
+env:
+  - name: AWS_REGION
+    value: "us-east-1"
+  - name: NOTIFICATION_QUEUE_URL
+    value: ""

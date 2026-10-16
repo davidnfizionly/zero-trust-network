@@ -1,0 +1,10 @@
+# image.repository and serviceAccount.irsaRoleArn are set at deploy time from Terraform outputs.
+env:
+  - name: AWS_REGION
+    value: "us-east-1"
+  - name: TRANSACTIONS_TABLE
+    value: "payment-platform-transactions"
+  - name: FRAUD_EVENTS_TABLE
+    value: "payment-platform-fraud-events"
+  - name: EVENT_BUS_NAME
+    value: "payment-platform-events"

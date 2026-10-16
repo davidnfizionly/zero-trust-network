@@ -1,0 +1,13 @@
+# Same install as the original platform (istioctl demo profile). The only addition is the
+# tag annotation, so the load balancer created for the ingress gateway carries Project=zero-trust.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: demo
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+        k8s:
+          serviceAnnotations:
+            service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Project=zero-trust
