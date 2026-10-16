@@ -19,3 +19,9 @@ Real problems, in the order they happened: what happened, root cause, fix.
 - **What happened:** The first full audit refused the Terraform provider lock file.
 - **Root cause:** The rule matched any run of 12 digits, and the hexadecimal provider hashes contain such runs between letters.
 - **Fix:** A 12-digit number now only matches when it is not touching a letter or digit (the way account IDs appear in ARNs, ECR hostnames and quoted values), and the known account IDs are matched literally anywhere. Retested: the lock file passes, a sample ARN is still refused.
+
+## 2026-10-16 - The e-mail rule flagged Python decorators
+
+- **What happened:** The push of the baseline code was refused for "e-mail address" on FastAPI decorators such as `@app.get`.
+- **Root cause:** The audit scans added diff lines, which start with `+`, and the e-mail rule accepted `+` as a one-character local part, so `+@app.get` matched.
+- **Fix:** The local part must start with a letter or digit. Retested: decorators pass, a sample address on example.com is still refused.
