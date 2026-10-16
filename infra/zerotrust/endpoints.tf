@@ -66,10 +66,12 @@ resource "aws_vpc_security_group_ingress_rule" "endpoints_https" {
 resource "aws_vpc_endpoint" "interface" {
   for_each = local.interface_endpoints
 
-  vpc_id              = local.vpc_id
-  service_name        = "com.amazonaws.${var.aws_region}.${each.key}"
-  vpc_endpoint_type   = "Interface"
-  private_dns_enabled = true
+  vpc_id            = local.vpc_id
+  service_name      = "com.amazonaws.${var.aws_region}.${each.key}"
+  vpc_endpoint_type = "Interface"
+  # DynamoDB Streams interface endpoints have no private DNS name, so the fraud detection
+  # service is pointed at the endpoint's own DNS name (AWS_ENDPOINT_URL_DYNAMODB_STREAMS).
+  private_dns_enabled = each.key != "dynamodb-streams"
   subnet_ids          = [local.primary_private_subnet]
   security_group_ids  = [aws_security_group.endpoints.id]
 

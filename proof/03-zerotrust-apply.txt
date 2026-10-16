@@ -1,0 +1,25 @@
+== Zero trust stack apply
+zerotrust apply start 2026-10-16 19:37:20
+zerotrust exit=1 end 2026-10-16 19:43:40
+Error: creating EC2 VPC Endpoint (com.amazonaws.us-east-1.dynamodb-streams): operation error EC2: CreateVpcEndpoint, https response error StatusCode: 400, RequestID: 3e3f9666-1529-43f2-a410-f6902207d69a, api error InvalidParameter: Private DNS can't be enabled because the service com.amazonaws.us-east-1.dynamodb-streams does not provide a private DNS name.
+-- second apply after the fix
+Apply complete! Resources: 1 added, 1 changed, 0 destroyed.
+
+-- resources in the zerotrust state: 85 (including data sources)
+aws_iam_role.flow_logs: Creation complete after 2s [id=payment-platform-vpc-flow-logs]
+aws_guardduty_detector.this: Creation complete after 2s [id=41139894a994487ba93024cd9451d002]
+aws_securityhub_account.this: Creation complete after 2s [id=<account-id>]
+aws_flow_log.workload: Creation complete after 2s [id=fl-05e5ddb890e274b65]
+aws_iam_role_policy.flow_logs: Creation complete after 1s [id=payment-platform-vpc-flow-logs:write-vpc-flow-logs]
+aws_vpc_endpoint.dynamodb: Creation complete after 8s [id=vpce-1]
+aws_vpc_endpoint.s3: Creation complete after 9s [id=vpce-2]
+aws_vpc_endpoint.interface["ssmmessages"]: Creation complete after 35s [id=vpce-3]
+aws_vpc_endpoint.interface["sqs"]: Creation complete after 36s [id=vpce-4]
+aws_vpc_endpoint.interface["ecr.dkr"]: Creation complete after 54s [id=vpce-5]
+aws_vpc_endpoint.interface["events"]: Creation complete after 59s [id=vpce-6]
+aws_vpc_endpoint.interface["ssm"]: Creation complete after 1m6s [id=vpce-7]
+aws_vpc_endpoint.interface["sts"]: Creation complete after 1m10s [id=vpce-8]
+aws_vpc_endpoint.interface["ec2messages"]: Creation complete after 1m11s [id=vpce-9]
+aws_vpc_endpoint.interface["ecr.api"]: Creation complete after 1m20s [id=vpce-10]
+aws_vpc_endpoint.interface["ec2"]: Creation complete after 1m24s [id=vpce-11]
+aws_networkfirewall_firewall.zero_trust: Creation complete after 5m37s [id=arn-1

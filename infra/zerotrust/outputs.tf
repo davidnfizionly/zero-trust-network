@@ -25,3 +25,7 @@ output "session_log_bucket" {
 output "guardduty_detector_id" {
   value = aws_guardduty_detector.this.id
 }
+
+output "dynamodb_streams_endpoint_url" {
+  value = "https://${aws_vpc_endpoint.interface["dynamodb-streams"].dns_entry[0].dns_name}"
+}

@@ -27,6 +27,10 @@ spec:
             - name: {{ .name }}
               value: {{ .value | quote }}
             {{- end }}
+            {{- range .Values.extraEnv }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           livenessProbe:

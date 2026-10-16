@@ -43,3 +43,15 @@ Real problems, in the order they happened: what happened, root cause, fix.
 - **What happened:** The first "before" scan reported the public EKS API with no open port and gave different results for the two addresses of the same load balancer (five open ports on one, only port 80 on the other).
 - **Root cause:** The scanner opened 300 connections in parallel with a 2-second timeout. From WSL, that many simultaneous handshakes were dropped or timed out, so listening ports looked closed. Probing the same ports one at a time showed 443 open on the EKS API and 80, 443, 15021 open on both load balancer addresses.
 - **Fix:** 64 parallel probes, a 3-second timeout, and a second pass on every port that did not answer; a port counts as open if either pass completes the handshake. The rerun gives the same open ports on both load balancer addresses. The unreliable first output was discarded, not published. The load balancer name, which identifies the resource, is now masked as well.
+
+## 2026-10-16 - The DynamoDB Streams endpoint cannot use private DNS
+
+- **What happened:** The zero trust apply stopped on `InvalidParameter: Private DNS can't be enabled because the service com.amazonaws.us-east-1.dynamodb-streams does not provide a private DNS name`. The firewall, routing and the other endpoints were already created, so the fraud detection service started getting `AccessDeniedException` on `GetRecords`: its calls still left through the NAT path, and the new deny-outside-VPC condition on its role refused them.
+- **Root cause:** Not every interface endpoint service publishes a private DNS name. DynamoDB Streams does not, so the public hostname keeps resolving to public addresses inside the VPC.
+- **Fix:** The Streams endpoint is created without private DNS, and the fraud detection service gets `AWS_ENDPOINT_URL_DYNAMODB_STREAMS` set to the endpoint's own DNS name (a standard AWS SDK setting, no code change), through a new `extraEnv` value in the Helm chart filled by `workloads/deploy.sh` from a Terraform output. After the redeploy the stream polling loop runs without errors.
+
+## 2026-10-16 - One node never registered with Session Manager
+
+- **What happened:** After the retrofit only one of the two nodes appeared online in Session Manager. The firewall logged a blocked outbound TLS connection from the other node to a public Amazon address about once a minute.
+- **Root cause (probable, not confirmed):** The SSM agent on that node started at boot, before the node role had the Session Manager policy and before the endpoints existed, and kept retrying in a way that still reached public addresses through the NAT path, which the firewall now drops. A reboot to confirm was not run.
+- **Fix:** The demo scripts select a node that is online in Session Manager. The blocked attempts stay in the firewall log as they happened.

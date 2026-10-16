@@ -17,6 +17,9 @@ irsa_json="$(terraform -chdir="$CLUSTER_DIR" output -json irsa_role_arns)"
 cluster="$(terraform -chdir="$CLUSTER_DIR" output -raw cluster_name)"
 notification_queue="$(terraform -chdir="$DATA_DIR" output -raw notification_queue_url)"
 reconciliation_queue="$(terraform -chdir="$DATA_DIR" output -raw reconciliation_queue_url)"
+# After the zero trust retrofit, DynamoDB Streams is reached through its interface endpoint,
+# which has no private DNS name, so the endpoint URL is passed to the fraud detection service.
+streams_url="$(terraform -chdir="$ROOT/infra/zerotrust" output -raw dynamodb_streams_endpoint_url 2>/dev/null || true)"
 
 aws eks update-kubeconfig --region "$REGION" --name "$cluster" >/dev/null
 
@@ -39,6 +42,10 @@ for svc in "${SERVICES[@]}"; do
   case "$svc" in
     notification)   extra=(--set "env[1].value=$notification_queue") ;;
     reconciliation) extra=(--set "env[2].value=$reconciliation_queue") ;;
+    fraud-detection)
+      if [[ "$streams_url" == https://* ]]; then
+        extra=(--set "extraEnv[0].name=AWS_ENDPOINT_URL_DYNAMODB_STREAMS" --set "extraEnv[0].value=$streams_url")
+      fi ;;
   esac
   helm upgrade --install "$svc" "$ROOT/workloads/helm/microservice" -n "$NS" \
     -f "$ROOT/workloads/helm/values/values-$svc.yaml" \

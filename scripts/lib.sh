@@ -18,10 +18,18 @@ ingress_host() {
   kc -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 }
 
+# A worker node of the cluster that is online in Session Manager.
 first_node() {
-  aws ec2 describe-instances --region "$REGION" \
+  local nodes online
+  nodes="$(aws ec2 describe-instances --region "$REGION" \
     --filters "Name=tag:eks:cluster-name,Values=$CLUSTER" Name=instance-state-name,Values=running \
-    --query 'Reservations[0].Instances[0].InstanceId' --output text
+    --query 'Reservations[].Instances[].InstanceId' --output text)"
+  online="$(aws ssm describe-instance-information --region "$REGION" \
+    --query 'InstanceInformationList[?PingStatus==`Online`].InstanceId' --output text)"
+  for n in $nodes; do
+    if [[ " $online " == *" $n "* ]] || [[ "$online" == *"$n"* ]]; then echo "$n"; return; fi
+  done
+  echo "no cluster node is online in Session Manager" >&2; return 1
 }
 
 stamp() { date -u '+%Y-%m-%d %H:%M:%S UTC'; }
