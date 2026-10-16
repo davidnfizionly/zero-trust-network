@@ -1,0 +1,44 @@
+== Cleanup verification, 2026-10-16 21:47:47 UTC, us-east-1
+Tagged Project=zero-trust (resource type list):
+      1 arn-1
+      1 budgets budget
+      2 ec2 instance
+      1 ec2 natgateway
+      2 ec2 network-interface
+      1 ec2 security-group
+      1 ec2 security-group-rule
+      2 ec2 volume
+     13 ec2 vpc-endpoint
+      1 ec2 vpc-flow-log
+      1 kms key
+EKS clusters: 0
+EC2 instances not terminated: 0
+EBS volumes: 0
+Elastic IPs: 0
+NAT gateways (not deleted): 0
+Non-default VPCs: 0
+ENIs outside the default VPC: 0
+Classic LBs: 0  ELBv2: 0
+Network Firewalls: 0  policies: 0  rule groups: 0
+VPC endpoints: 0
+CloudWatch log groups: 0
+ECR repositories: 0
+DynamoDB tables: 0
+SQS queues: 0
+Lambda functions: 0
+Event buses (custom): 0
+IAM roles payment-platform*: 0
+OIDC providers: 0
+SSM documents (own): 0
+GuardDuty detectors: 0
+Security Hub: not subscribed
+S3 buckets:
+zero-trust-network-tfstate-<suffix>
+KMS customer keys:
+CUSTOMER	PendingDeletion	2026-11-16T00:47:10.788000+03:00
+
+Note: the tag listing above still shows instances, volumes, endpoints and other resources that every
+service listing reports as gone. The Resource Groups Tagging API keeps entries for recently deleted
+resources for a while; the per-service listings are the authoritative check. Remaining on purpose:
+the budget (no charge), the Terraform state bucket (deleted last), and the EKS secrets KMS key, which
+AWS keeps in PendingDeletion for the module's 30-day window before deleting it.
