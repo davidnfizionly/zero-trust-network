@@ -8,7 +8,8 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
-  cluster_endpoint_public_access  = true
+  # Original value: true. The zero trust retrofit sets zero_trust_private_api=true (ADR-006).
+  cluster_endpoint_public_access  = !var.zero_trust_private_api
   cluster_endpoint_private_access = true
 
   enable_irsa = true

@@ -25,3 +25,51 @@ One entry per decision the project plan does not spell out: what, why, what was 
 - **What:** The baseline is the original platform with only these changes: Kubernetes 1.35 and AL2023 nodes (ADR-001); a partial S3 backend (ADR-002); provider default tags `Project=zero-trust`, with the original `Project` tag renamed `Workload` so it does not override it, and `Project` repeated on the EKS module tags so node instances carry it; a tag annotation on the Istio ingress gateway service so its load balancer is tagged; account-specific Helm values (ECR URLs, IRSA role ARNs, queue URLs) removed from the values files and injected at deploy time from Terraform outputs; the simulator reads its target from `API_BASE_URL` instead of a hardcoded load balancer hostname; comments, descriptions and log messages translated to English, emojis removed. Network layout, security groups, public ingress, NAT and IAM policies are unchanged.
 - **Why:** The "before" measurement must describe the original exposure, so nothing that affects reachability is touched. The other changes are required to deploy in a new account, to tag every resource for cleanup verification, and to publish the code without account identifiers.
 - **Rejected:** Redeploying the Prometheus, Grafana and Kiali sample addons: they are ClusterIP services that do not change the exposure being measured, and on two t3.medium nodes (the account allows 5 vCPU) their memory is better left to the workload and the security tooling added later.
+
+## ADR-005 - One firewall endpoint and single-AZ interface endpoints
+
+- **What:** The Network Firewall has one endpoint, in the first availability zone, and both public subnets route through it. The interface VPC endpoints are also placed in that one zone. The workload itself still spans two zones.
+- **Why:** The whole project has a hard cost cap of 10 USD. A firewall endpoint costs 0.395 USD per hour and each interface endpoint 0.01 USD per hour per zone (AWS Pricing API, us-east-1). One firewall endpoint instead of two saves 0.395 USD per hour, more than the rest of the retrofit combined. Cross-zone traffic through one endpoint is functionally correct.
+- **Rejected:** One firewall endpoint per zone (the production pattern: a zone failure would not take inspection down with it, and no cross-zone traffic charges). Recorded as the change to make for production.
+
+## ADR-006 - Retrofit changes to baseline-owned resources go through baseline variables
+
+- **What:** Making the EKS API private changes an attribute of the cluster, which the baseline stack owns. The baseline stack exposes `zero_trust_private_api` (default `false`, the original value); the retrofit applies the baseline again with it set to `true`. Every other control lives in `infra/zerotrust` and only adds resources. Once the API is private, kubectl reaches it through a Session Manager port-forwarding session to a node (`scripts/kube_tunnel.sh`).
+- **Why:** One owner per resource avoids two stacks fighting over the same attribute, and the default still reproduces the original platform exactly. Restricting the public endpoint to one IP address instead would leave a reachable API from the machine that runs the external scan, so the scan could not show it closed.
+- **Rejected:** Editing the cluster from the zerotrust stack (drift and conflicting state); keeping the public endpoint with an IP allowlist (still an internet-facing API).
+
+## ADR-007 - Two /1 routes instead of replacing the public default route
+
+- **What:** The public route table keeps the baseline `0.0.0.0/0 -> internet gateway` route, and the zerotrust stack adds `0.0.0.0/1` and `128.0.0.0/1` pointing to the firewall endpoint. Longest-prefix match sends all internet-bound traffic from the public subnets (load balancer replies, NAT egress) through the firewall.
+- **Why:** The default route belongs to the baseline VPC module. Two more specific routes achieve the same path without editing or importing a resource another stack owns. The internet gateway edge route table sends inbound traffic for the public subnets to the same endpoint, so both directions of every flow go through it (stateful inspection needs symmetric routing).
+- **Rejected:** Re-associating the public subnets to a new route table (the baseline already owns the associations); importing the module's route into this stack.
+
+## ADR-008 - VPC endpoints chosen from what the workload calls, NAT kept behind the firewall
+
+- **What:** Gateway endpoints for DynamoDB and S3. Interface endpoints for ECR (api, dkr), EC2 (VPC CNI), STS (IRSA), EventBridge, SQS, DynamoDB Streams, and SSM, SSM Messages, EC2 Messages (Session Manager). No Secrets Manager endpoint. The NAT gateway stays, but every packet it sends to the internet goes through the firewall, which only passes TLS to Docker Hub domains.
+- **Why:** The list comes from the code: the five services call DynamoDB, DynamoDB Streams, EventBridge and SQS, pods get credentials from STS, nodes need ECR and EC2. None of the services reads a secret, so a Secrets Manager endpoint would be a resource with nothing behind it. The NAT gateway cannot go: Istio's proxy image is pulled from Docker Hub each time a pod starts, and removing NAT would break the next pod restart. Keeping it behind a deny-by-default allowlist leaves no open egress path, and the egress drop rule gives a second blocked-path demonstration.
+- **Rejected:** Removing NAT and mirroring the Istio images into ECR (more moving parts in the baseline workload than the project is about); a Secrets Manager endpoint with no caller.
+
+## ADR-009 - Network Firewall alerts reach Security Hub through a custom Lambda
+
+- **What:** A CloudWatch Logs subscription on the firewall alert log group invokes a Lambda function that writes custom findings to Security Hub CSPM (`BatchImportFindings`, the account's default product ARN). Alerts are grouped per rule, source address and hour.
+- **Why:** Network Firewall is not a native finding source. The "AWS service integrations with Security Hub CSPM" page lists Config, Firewall Manager, GuardDuty, Health, IAM Access Analyzer, Inspector, IoT Device Defender, Macie, Route 53 Resolver DNS Firewall and Patch Manager as senders. Firewall Manager covers WAF and Shield policies and needs AWS Organizations; Health sends service events, not traffic alerts. The custom findings are labeled as coming from a custom integration so they are not mistaken for a native one.
+- **Rejected:** Claiming a native integration; Firewall Manager (multi-account governance, out of scope).
+
+## ADR-010 - GuardDuty with EKS audit logs, without runtime monitoring
+
+- **What:** GuardDuty is enabled with EKS audit log monitoring; runtime monitoring is turned off. Security Hub CSPM is enabled with its default standards.
+- **Why:** Runtime monitoring installs an agent DaemonSet on the nodes, and two t3.medium nodes (the account allows 5 vCPU) already run Istio and five services. Both services are on their free trial and are disabled at cleanup.
+- **Rejected:** Runtime monitoring (node capacity).
+
+## ADR-011 - Session Manager on an EKS node, no extra instance
+
+- **What:** The zero-open-port admin demo targets an EKS worker node. The node security group has no rule open to the internet and none on port 22. It still has inbound rules from the cluster security group and from itself, which Kubernetes needs (API server to kubelet, pod to pod).
+- **Why:** The account's on-demand quota is 5 vCPU and the two nodes use 4, so no separate instance can run. The claim made is therefore "no inbound rule from outside the VPC and no SSH", not "zero inbound rules", because the node security group cannot have zero.
+- **Rejected:** A dedicated t3.micro admin target (quota); claiming zero inbound rules on a node.
+
+## ADR-012 - The public entry point stays plain HTTP on port 80
+
+- **What:** The single deliberate ingress is the Istio gateway's load balancer on TCP 80. The firewall inspects the HTTP path and only passes `/api/` requests.
+- **Why:** The original platform has no domain and no certificate. Adding TLS would need both and is not part of the retrofit; because the traffic is plaintext, the firewall can read the path, which is what the blocked-path demo uses.
+- **Rejected:** Adding a domain and an ACM certificate (outside the scope of the plan).

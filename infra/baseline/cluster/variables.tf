@@ -33,3 +33,9 @@ variable "node_desired_size" {
   type        = number
   default     = 2
 }
+
+variable "zero_trust_private_api" {
+  description = "Retrofit switch: when true, the EKS API endpoint is private only. False reproduces the original platform."
+  type        = bool
+  default     = false
+}

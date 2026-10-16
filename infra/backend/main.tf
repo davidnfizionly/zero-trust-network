@@ -40,7 +40,7 @@ variable "aws_region" {
 variable "monthly_budget_usd" {
   description = "Monthly cost budget, credits and refunds excluded"
   type        = string
-  default     = "25"
+  default     = "10"
 }
 
 # Created first (terraform apply -target), before any other resource.
