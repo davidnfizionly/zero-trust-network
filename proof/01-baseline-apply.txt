@@ -1,0 +1,29 @@
+== Baseline apply (original platform, Kubernetes 1.35)
+apply start 2026-10-16 18:41:42
+data exit=0
+cluster apply start 2026-10-16 18:43:56
+cluster exit=0 end 2026-10-16 18:57:59
+
+-- data stack
+aws_cloudwatch_event_bus.payment_events: Creation complete after 2s [id=payment-platform-events]
+aws_cloudwatch_event_rule.fraud_detected: Creation complete after 1s [id=payment-platform-events/payment-platform-fraud-detected]
+aws_cloudwatch_event_rule.transaction_lifecycle: Creation complete after 1s [id=payment-platform-events/payment-platform-transaction-lifecycle]
+aws_cloudwatch_event_rule.transaction_confirmed: Creation complete after 1s [id=payment-platform-events/payment-platform-transaction-confirmed]
+aws_dynamodb_table.wallets: Creation complete after 10s [id=payment-platform-wallets]
+aws_dynamodb_table.fraud_events: Creation complete after 10s [id=payment-platform-fraud-events]
+aws_dynamodb_table.transactions: Creation complete after 27s [id=payment-platform-transactions]
+aws_sqs_queue.notification_queue: Creation complete after 29s [id=https://sqs.us-east-1.amazonaws.com/<account-id>/payment-platform-notification-queue]
+aws_sqs_queue.reconciliation_queue: Creation complete after 29s [id=https://sqs.us-east-1.amazonaws.com/<account-id>/payment-platform-reconciliation-queue]
+aws_cloudwatch_event_target.notification_on_fraud: Creation complete after 1s [id=payment-platform-events-payment-platform-fraud-detected-notification-queue-fraud]
+aws_cloudwatch_event_target.reconciliation_on_lifecycle: Creation complete after 1s [id=payment-platform-events-payment-platform-transaction-lifecycle-reconciliation-queue]
+aws_cloudwatch_event_target.notification_on_confirmed: Creation complete after 1s [id=payment-platform-events-payment-platform-transaction-confirmed-notification-queue-confirmed]
+aws_sqs_queue_policy.reconciliation_queue_policy: Creation complete after 1m18s [id=https://sqs.us-east-1.amazonaws.com/<account-id>/payment-platform-reconciliation-queue]
+aws_sqs_queue_policy.notification_queue_policy: Creation complete after 1m18s [id=https://sqs.us-east-1.amazonaws.com/<account-id>/payment-platform-notification-queue]
+Apply complete! Resources: 14 added, 0 changed, 0 destroyed.
+
+-- cluster stack
+Apply complete! Resources: 77 added, 0 changed, 0 destroyed.
+module.vpc.aws_vpc.this[0]: Creation complete after 15s [id=vpc-1]
+module.vpc.aws_nat_gateway.this[0]: Creation complete after 1m37s [id=nat-1]
+module.eks.aws_eks_cluster.this[0]: Creation complete after 10m10s [id=payment-platform-eks]
+module.eks.module.eks_managed_node_group["default"].aws_eks_node_group.this[0]: Creation complete after 2m12s [id=payment-platform-eks:default-20261016185544963900000013]

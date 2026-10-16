@@ -46,6 +46,7 @@ const isPrivate = (ip) => /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|169
 export const mask = (text) => String(text ?? '')
   .replace(/arn:aws[a-z-]*:[^\s"',]+/g, (m) => label('arn', m))
   .replace(/\b(vpc|subnet|sg|eni|igw|nat|rtb|vpce|i|fw)-[0-9a-f]{8,17}\b/g, (m, k) => label(k, m))
+  .replace(/\ba[0-9a-f]{31}\b/g, (m) => label('lb-name', m))
   .replace(/(?<![0-9A-Za-z])\d{12}(?![0-9A-Za-z])/g, '<account-id>')
   .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, (ip) => (isPrivate(ip) ? ip : label('public-ip', ip)));
 

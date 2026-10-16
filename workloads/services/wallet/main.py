@@ -41,7 +41,7 @@ class WalletResponse(BaseModel):
 
 
 class AdjustBalanceRequest(BaseModel):
-    amount: Decimal = Field(gt=0, description="Montant strictement positif")
+    amount: Decimal = Field(gt=0, description="Strictly positive amount")
     transaction_id: Optional[str] = None
 
 

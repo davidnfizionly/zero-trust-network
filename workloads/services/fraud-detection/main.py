@@ -82,7 +82,7 @@ def _publish_fraud_event(rule: str, wallet_id: str, transaction_id: str, details
 def _check_velocity(wallet_id: str, now: float):
     recent = [t for t in wallet_history[wallet_id] if now - t["ts"] <= VELOCITY_WINDOW_SECONDS]
     if len(recent) >= VELOCITY_THRESHOLD:
-        return f"{len(recent)} transactions en {VELOCITY_WINDOW_SECONDS}s (seuil: {VELOCITY_THRESHOLD})"
+        return f"{len(recent)} transactions in {VELOCITY_WINDOW_SECONDS}s (threshold: {VELOCITY_THRESHOLD})"
     return None
 
 
@@ -101,7 +101,7 @@ def _check_impossible_travel(wallet_id: str, location: str, now: float):
     for t in recent:
         if t["location"] != "unknown" and location != "unknown" and t["location"] != location:
             delta = now - t["ts"]
-            return f"Transaction depuis '{t['location']}' il y a {delta:.0f}s, puis '{location}' maintenant"
+            return f"Transaction from '{t['location']}' {delta:.0f}s ago, then from '{location}' now"
     return None
 
 
