@@ -74,19 +74,6 @@ Everything ran in one account in us-east-1 for about three hours of billable tim
 10. **Private API, demos and the after measurement.** The baseline was applied again with `zero_trust_private_api=true`, then the four scenarios ran, the posture snapshot ran again, and the dashboard was tested on live data.
 11. **Teardown and verification.** Both stacks destroyed in reverse order, GuardDuty and Security Hub confirmed off, every service listing checked empty.
 
-**Build time.** The project took 5 hours 7 minutes of wall-clock time, from the first preflight command at 16:56 UTC to the final audit at 22:04 UTC on the same day. The billable part was 3 hours 6 minutes (18:41 to 21:47 UTC). Where the time went:
-
-| Part | Time |
-|---|---|
-| Preflight, repository guardrails, backend and budget | 34 min |
-| Copying the original platform and writing the zero trust stack, scripts and dashboard offline | 55 min |
-| Resolving a second working copy that pushed a different version, before any deployment | 15 min |
-| Baseline deploy, smoke test, before measurement (including the scanner fix) | 46 min |
-| Retrofit apply, private API, four demos, rule and dashboard fixes | 1 h 13 min |
-| Waiting for the console captures with everything still running | 48 min |
-| Teardown and verification | 20 min |
-| Diagram, README and final audit | 16 min |
-
 ## Real Problems Hit and Fixed
 
 Every entry below is in [docs/DEVLOG.md](docs/DEVLOG.md) with its root cause.
